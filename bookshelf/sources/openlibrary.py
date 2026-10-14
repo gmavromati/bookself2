@@ -10,6 +10,7 @@ from ..models import DetectedBook, SourceRating
 from .base import MIN_MATCH, RatingSource
 
 SEARCH_URL = "https://openlibrary.org/search.json"
+WORK_URL = "https://openlibrary.org/works/{}"
 FIELDS = "key,title,author_name,ratings_average,ratings_count,readinglog_count,first_publish_year"
 
 
@@ -17,6 +18,8 @@ class OpenLibrarySource(RatingSource):
     name = "openlibrary"
 
     def _lookup(self, book: DetectedBook) -> Optional[SourceRating]:
+        if book.openlibrary_work:
+            return self._by_work(book.openlibrary_work)
         titles = self.candidate_titles(book)
         author = book.lookup_author
         for title in titles:
@@ -29,6 +32,26 @@ class OpenLibrarySource(RatingSource):
             if best:
                 return best
         return None
+
+    def _by_work(self, work_id: str) -> Optional[SourceRating]:
+        """Exact work known (e.g. from Wikidata): read its ratings and reading-log counts directly."""
+        base = WORK_URL.format(work_id)
+        resp = self.session.get(f"{base}/ratings.json", timeout=20)
+        resp.raise_for_status()
+        summary = resp.json().get("summary", {})
+        resp = self.session.get(f"{base}/bookshelves.json", timeout=20)
+        resp.raise_for_status()
+        counts = resp.json().get("counts", {})
+        readers = sum(counts.get(k) or 0 for k in ("want_to_read", "currently_reading", "already_read"))
+        if not summary.get("count") and not readers:
+            return None
+        return SourceRating(
+            source="openlibrary",
+            average=round(summary["average"], 2) if summary.get("average") else None,
+            ratings_count=summary.get("count"),
+            popularity_count=readers,
+            url=base,
+        )
 
     @staticmethod
     def _best(docs: list[dict], titles: list[str], author: Optional[str]) -> Optional[SourceRating]:

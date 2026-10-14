@@ -80,3 +80,27 @@ def test_hardcover_parses_search_results(greek_little_prince):
 def test_hardcover_unavailable_without_token(monkeypatch):
     monkeypatch.delenv("HARDCOVER_TOKEN", raising=False)
     assert not HardcoverSource(session=FakeSession()).available()
+
+
+def test_unreachable_source_is_skipped_after_first_failure(greek_little_prince):
+    import requests
+
+    class Down(FakeSession):
+        def get(self, url, **kwargs):
+            self.calls.append(url)
+            raise requests.ConnectionError("blocked")
+
+    session = Down()
+    src = OpenLibrarySource(session=session)
+    assert src.lookup(greek_little_prince) is None
+    assert src.lookup(greek_little_prince) is None
+    assert len(session.calls) == 1
+
+
+def test_openlibrary_uses_exact_work_when_known(greek_little_prince):
+    book = greek_little_prince.model_copy(update={"openlibrary_work": "OL45883W"})
+    session = FakeSession({"summary": {"average": 4.2345, "count": 812}},
+                          {"counts": {"want_to_read": 5000, "currently_reading": 300, "already_read": 4000}})
+    r = OpenLibrarySource(session=session).lookup(book)
+    assert r.average == 4.23 and r.ratings_count == 812 and r.popularity_count == 9300
+    assert session.calls[0][1] == "https://openlibrary.org/works/OL45883W/ratings.json"

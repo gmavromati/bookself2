@@ -27,3 +27,12 @@ def test_author_matches_on_surname():
 def test_match_score_rejects_wrong_author():
     assert match_score(["Emma"], "Jane Austen", "Emma", ["Someone Else"]) == 0.0
     assert match_score(["Emma"], "Jane Austen", "Emma", ["Jane Austen"]) == 1.0
+
+
+def test_lookalike_letters_match_across_scripts():
+    from bookshelf.matching import fix_homoglyphs, token_coverage
+
+    # OCR returned Latin capitals for a Greek title: still recognised.
+    assert token_coverage("Το όνομα του ρόδου", "TO ONOMA TOY ΡΟΔΟΥ".lower().split()) == 1.0
+    # A line mixing distinctive Greek and Latin letters is left as read.
+    assert fix_homoglyphs("ΤΟ ΟΝΟΜΑ ΡΟΔΟΥ OYMIIEPTC") == "ΤΟ ΟΝΟΜΑ ΡΟΔΟΥ OYMIIEPTC"

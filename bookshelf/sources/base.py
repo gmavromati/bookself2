@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Optional
 
 import requests
@@ -27,11 +28,22 @@ class RatingSource:
         self.session = session or requests.Session()
         self.session.headers.setdefault("User-Agent", USER_AGENT)
         self.cache = cache or JsonCache(enabled=False)
+        self._down = False
+        self._down_lock = threading.Lock()  # set after a connection failure or rate limit: stop trying this run
 
     def available(self) -> bool:
         return True
 
+    def _mark_down(self) -> bool:
+        """Mark this source unusable for the run; True only for the first caller (who logs it)."""
+        with self._down_lock:
+            first = not self._down
+            self._down = True
+            return first
+
     def cache_key(self, book: DetectedBook) -> str:
+        if book.openlibrary_work or book.wikidata_id:
+            return f"{self.name}|{book.openlibrary_work or ''}|{book.wikidata_id or ''}|{book.original_title}".casefold()
         return "|".join(
             [self.name, book.original_title or "", book.lookup_author or "", book.english_title or "", book.title]
         ).casefold()
@@ -41,11 +53,25 @@ class RatingSource:
         cached = self.cache.get(key)
         if cached is not None:
             return SourceRating.model_validate(cached) if cached else None
+        if self._down:
+            return None
         try:
             result = self._lookup(book)
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            if self._mark_down():
+                log.warning("%s is unreachable, skipping it for this run (%s)", self.name, type(exc).__name__)
+            return None
+        except requests.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else None
+            if status == 429 and self._mark_down():
+                log.warning("%s: daily quota used up, skipping it for this run%s", self.name,
+                            " (set GOOGLE_BOOKS_API_KEY for your own quota)" if self.name == "googlebooks" else "")
+            elif status != 429:
+                log.warning("%s lookup failed for %r: %s", self.name, book.title, exc)
+            return None  # don't cache transient failures
         except (requests.RequestException, ValueError, KeyError) as exc:
             log.warning("%s lookup failed for %r: %s", self.name, book.title, exc)
-            return None  # don't cache transient failures
+            return None
         self.cache.set(key, result.model_dump() if result else {})
         return result
 

@@ -52,7 +52,7 @@ def to_json(books: list[RatedBook]) -> str:
 CSV_FIELDS = [
     "title", "author", "original_title", "original_author", "original_language", "english_title",
     "language", "first_published", "rating", "ratings_count", "score", "rating_tier",
-    "popularity_tier", "sources", "position", "confidence",
+    "popularity_tier", "sources", "position", "confidence", "goodreads_url",
 ]
 
 
@@ -81,6 +81,7 @@ def write_csv(books: list[RatedBook], path: Path) -> None:
                 ),
                 "position": b.book.position,
                 "confidence": b.book.confidence,
+                "goodreads_url": b.book.goodreads_url,
             })
 
 
@@ -162,6 +163,8 @@ def _book_html(rank: int, b: RatedBook) -> str:
     for r in b.ratings:
         label = f"{e(r.source)} {r.average:.2f} ({_fmt_count(r.ratings_count)})" if r.average else e(r.source)
         sources.append(f'<a href="{e(r.url)}" target="_blank" rel="noopener">{label}</a>' if r.url else label)
+    if bk.goodreads_url:
+        sources.append(f'<a href="{e(bk.goodreads_url)}" target="_blank" rel="noopener">see on Goodreads ↗</a>')
     rating = f"{b.rating:.2f}" if b.rating is not None else "–"
     return (
         f'<div class="book"><div class="rank">{rank}</div>'
@@ -169,7 +172,7 @@ def _book_html(rank: int, b: RatedBook) -> str:
         f'<div class="right"><div class="stars">★ {rating}</div>'
         f'<div>{_badge(b.rating_tier)}{_badge(b.popularity_tier)}</div></div>'
         f'<div class="src">{" · ".join(sources) or "no ratings found"}'
-        f'{" · low-confidence identification" if bk.confidence == "low" else ""}</div></div>'
+        f'{" · not identified for sure, please check" if bk.confidence == "low" else ""}</div></div>'
     )
 
 

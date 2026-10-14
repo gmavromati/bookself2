@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "bookshelf-rater"
 version = "0.1.0"
-description = "Photograph your bookshelf, identify every book (in any language) and rank them by their original rating and popularity."
+description = "Photograph your bookshelf, identify every book (in any language) and rank them by original rating and popularity, using only free tools and open data."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "anthropic>=1.13,<2",
     "pillow>=10",
+    "pytesseract>=0.3.10",
     "pydantic>=2",
     "requests>=2.31",
 ]

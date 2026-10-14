@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 
 class DetectedBook(BaseModel):
-    """A book spotted in the shelf photo, as identified by Claude."""
+    """A book spotted in the shelf photo, identified as an original work where possible."""
 
     spine_text: str = Field(description="Text read from the spine/cover, verbatim.")
     title: str = Field(description="Title as printed on this edition.")
@@ -21,6 +21,9 @@ class DetectedBook(BaseModel):
     first_published: Optional[int] = Field(default=None, description="Year the original work was first published.")
     position: Optional[str] = Field(default=None, description="Where on the shelf, e.g. 'top shelf, 3rd from left'.")
     confidence: Literal["high", "medium", "low"] = "medium"
+    wikidata_id: Optional[str] = None
+    openlibrary_work: Optional[str] = None  # e.g. "OL45883W"
+    goodreads_url: Optional[str] = None
 
     @property
     def display_title(self) -> str:
