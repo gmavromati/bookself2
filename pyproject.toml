@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bookshelf-rater"
+version = "0.1.0"
+description = "Photograph your bookshelf, identify every book (in any language) and rank them by their original rating and popularity."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=1.13,<2",
+    "pillow>=10",
+    "pydantic>=2",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+bookshelf = "bookshelf.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["bookshelf*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
